@@ -5,11 +5,7 @@
 //  Created by Koray Koska on 19.12.17.
 //
 
-#if os(iOS) || os(tvOS) || os(watchOS)
-    import UIKit
-#elseif os(OSX)
-    import AppKit
-#endif
+import UIKit
 
 public final class Blockies {
 
@@ -22,17 +18,9 @@ public final class Blockies {
     public var size: Int
     public var scale: Int
 
-    #if os(iOS) || os(tvOS) || os(watchOS)
-    public typealias Color = UIColor
-    public typealias Image = UIImage
-    #elseif os(OSX)
-    public typealias Color = NSColor
-    public typealias Image = NSImage
-    #endif
-
-    public var color: Color
-    public var bgColor: Color
-    public var spotColor: Color
+    public var color: UIColor
+    public var bgColor: UIColor
+    public var spotColor: UIColor
 
     // MARK: - Initialization
 
@@ -50,18 +38,18 @@ public final class Blockies {
         seed: String? = nil,
         size: Int = 8,
         scale: Int = 4,
-        color: Color? = nil,
-        bgColor: Color? = nil,
-        spotColor: Color? = nil
+        color: UIColor? = nil,
+        bgColor: UIColor? = nil,
+        spotColor: UIColor? = nil
     ) {
         let seed = seed ?? String(Int64(floor(Double.random * pow(10, 16))))
         self.seed = seed
         self.randSeed = BlockiesHelper.createRandSeed(seed: seed)
         self.size = size
         self.scale = scale
-        self.color = color ?? Color()
-        self.bgColor = bgColor ?? Color()
-        self.spotColor = spotColor ?? Color()
+        self.color = color ?? UIColor()
+        self.bgColor = bgColor ?? UIColor()
+        self.spotColor = spotColor ?? UIColor()
 
         if color == nil {
             self.color = createColor()
@@ -91,7 +79,7 @@ public final class Blockies {
      *
      * - returns: The generated image or `nil` if something went wrong.
      */
-    public func createImage(customScale: Int = 1) -> Image? {
+    public func createImage(customScale: Int = 1) -> UIImage? {
         let imageData = createImageData()
 
         return image(data: imageData, customScale: customScale)
@@ -114,12 +102,12 @@ public final class Blockies {
         return Double((UInt32(randSeed[3]) >> UInt32(0))) / Double(divisor)
     }
 
-    private func createColor() -> Color {
+    private func createColor() -> UIColor {
         let h = Double(rand() * 360)
         let s = Double(((rand() * 60) + 40)) / Double(100)
         let l = Double((rand() + rand() + rand() + rand()) * 25) / Double(100)
 
-        return Color(h: h, s: s, l: l) ?? Color.black
+        return UIColor(h: h, s: s, l: l) ?? UIColor.black
     }
 
     private func createImageData() -> [Double] {
@@ -148,59 +136,38 @@ public final class Blockies {
         return data
     }
 
-    private func image(data: [Double], customScale: Int) -> Image? {
+    private func image(data: [Double], customScale: Int) -> UIImage? {
         let finalSize = size * scale * customScale
-        #if os(iOS) || os(tvOS) || os(watchOS)
-            UIGraphicsBeginImageContext(CGSize(width: finalSize, height: finalSize))
-            let nilContext = UIGraphicsGetCurrentContext()
-        #elseif os(OSX)
-            let colorSpace = CGColorSpaceCreateDeviceRGB()
-            let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
-            let nilContext = CGContext(data: nil, width: finalSize, height: finalSize, bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace, bitmapInfo: bitmapInfo.rawValue)
-        #endif
-
-        guard let context = nilContext else {
-            return nil
-        }
-
         let width = Int(sqrt(Double(data.count)))
-
-        context.setFillColor(bgColor.cgColor)
-        context.fill(CGRect(x: 0, y: 0, width: size * scale, height: size * scale))
-
-        for i in 0 ..< data.count {
-            let row = Int(floor(Double(i) / Double(width)))
-            let col = i % width
-
-            let number = data[i]
-
-            let uiColor: Color
-            if number == 0 {
-                uiColor = bgColor
-            } else if number == 1 {
-                uiColor = color
-            } else if number == 2 {
-                uiColor = spotColor
-            } else {
-                uiColor = Color.black
+        
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: finalSize, height: finalSize))
+        return renderer.image { context in
+            let cgContext = context.cgContext
+            
+            cgContext.setFillColor(bgColor.cgColor)
+            cgContext.fill(CGRect(x: 0, y: 0, width: size * scale, height: size * scale))
+            
+            for i in 0 ..< data.count {
+                let row = Int(floor(Double(i) / Double(width)))
+                let col = i % width
+                
+                let number = data[i]
+                
+                let uiColor: UIColor
+                if number == 0 {
+                    uiColor = bgColor
+                } else if number == 1 {
+                    uiColor = color
+                } else if number == 2 {
+                    uiColor = spotColor
+                } else {
+                    uiColor = UIColor.black
+                }
+                
+                cgContext.setFillColor(uiColor.cgColor)
+                cgContext.fill(CGRect(x: CGFloat(col * scale * customScale), y: CGFloat(row * scale * customScale), width: CGFloat(scale * customScale), height: CGFloat(scale * customScale)))
             }
-
-            context.setFillColor(uiColor.cgColor)
-            context.fill(CGRect(x: CGFloat(col * scale * customScale), y: CGFloat(row * scale * customScale), width: CGFloat(scale * customScale), height: CGFloat(scale * customScale)))
         }
-
-        #if os(iOS) || os(tvOS) || os(watchOS)
-            let output = UIGraphicsGetImageFromCurrentImageContext()
-            UIGraphicsEndImageContext()
-
-            return output
-        #elseif os(OSX)
-            guard let output = context.makeImage() else {
-                return nil
-            }
-
-            return NSImage(cgImage: output, size: CGSize(width: finalSize, height: finalSize))
-        #endif
     }
 }
 
